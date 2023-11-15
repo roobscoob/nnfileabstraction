@@ -23,6 +23,6 @@ export abstract class Folder<Identifier extends IdentifierType, FileType extends
   abstract list(): Iterator<FolderRecord<Identifier, FileType, FolderType>>;
 }
 
-export abstract class GrowableFolder<Identifier extends IdentifierType, FileType extends File, FolderType extends Folder<any, any, any>, SetError> extends Folder<Identifier, FileType, FolderType> {
+export abstract class MutableFolder<Identifier extends IdentifierType, FileType extends File, FolderType extends Folder<any, any, any>, SetError> extends Folder<Identifier, FileType, FolderType> {
   abstract set(identifier: Identifier, content: FileType | FolderType): Result<void, SetError>;
 }

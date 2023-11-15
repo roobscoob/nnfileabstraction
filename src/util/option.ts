@@ -8,6 +8,11 @@ export class Option<T> {
     return Option.some(value);
   }
 
+  static fromNoneToken<NT, T>(token: NT, value: NT | T): Option<Exclude<T, NT>> {
+    if (value === token) return Option.none();
+    return Option.some(value as Exclude<T, NT>);
+  }
+
   static some<T>(value: T) {
     return new Option<T>({ ok: true, value });
   }
@@ -18,6 +23,13 @@ export class Option<T> {
 
   isSome(): T extends never ? false : boolean { return this.state.ok as any; }
   isNone(): T extends never ? true : boolean { return !this.state.ok as any; }
+
+  ifNone(fn: () => void): this {
+    if (!this.state.ok)
+      fn();
+
+    return this;
+  }
 
   unwrap(): T {
     if (this.state.ok) return this.state.value;

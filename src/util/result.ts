@@ -9,6 +9,18 @@ export class Result<sT, eT> {
     return new Result<never, eT>({ ok: false, value });
   }
 
+  static try<sT>(fn: () => sT): Result<sT, any> {
+    try {
+      return Result.ok(fn());
+    } catch (e) {
+      return Result.err(e);
+    }
+  }
+
+  static bindTry<sT, Args extends any[]>(fn: (...args: Args) => sT): (...args: Args) => Result<sT, any> {
+    return (...args: Args) => Result.try(() => fn(...args));
+  }
+
   private constructor(
     private state: { ok: true, value: sT } | { ok: false, value: eT }
   ) {}
@@ -29,19 +41,32 @@ export class Result<sT, eT> {
     throw new Error(err);
   }
 
-  unwrapOr<orT>(or: orT): sT | orT {
-    if (this.state.ok) return this.state.value;
-    return or;
-  }
-
   unwrapErr(): eT {
     if (this.state.ok) throw this.state.value;
     return this.state.value;
   }
 
-  map<sT2>(fn: (value: sT) => sT2): Result<sT2, eT> {
-    if (this.state.ok) return Result.ok(fn(this.state.value));
-    return Result.err(this.state.value);
+  map<sT2, eT2>(fn: (value: sT) => sT2 | Result<sT2, eT2>): Result<sT2, eT | eT2> {
+    if (!this.state.ok)
+      return Result.err(this.state.value);
+  
+    const mapped = fn(this.state.value);
+  
+    if (mapped instanceof Result)
+      return mapped;
+
+    return Result.ok(mapped);
+  }
+
+  mapTry<sT2>(fn: (value: sT) => sT2): Result<sT2, any> {
+    if (!this.state.ok)
+      return Result.err(this.state.value);
+
+    try {
+      return Result.ok(fn(this.state.value));
+    } catch (e) {
+      return Result.err(e);
+    }
   }
 
   mapErr<eT2>(fn: (value: eT) => eT2): Result<sT, eT2> {

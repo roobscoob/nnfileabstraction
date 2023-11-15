@@ -1,5 +1,5 @@
 import { Endianness, StringEncoding } from "./enums";
-import { FileHandle } from "./fileHandle";
+import { SyncReadableSpan } from "./span";
 import { Option } from "./util/option";
 import { Result } from "./util/result";
 
@@ -18,7 +18,7 @@ export class FileOutOfBoundsReadError extends Error {
 
 export class FileReader {
   constructor(
-    private file: FileHandle,
+    private file: SyncReadableSpan,
   ) { }
 
   private offset: number = 0;
@@ -33,7 +33,7 @@ export class FileReader {
   private encoding: StringEncoding = StringEncoding.UTF8;
 
   private inBounds(size: number) {
-    return this.offset + size <= this.file.length();
+    return this.offset + size <= this.file.getSize();
   }
 
   setEndianness(endianness: Endianness) {
@@ -166,15 +166,15 @@ export class FileReader {
   }
 
   getArrayBufferToEnd(): ArrayBuffer {
-    return this.file.getByteSliceToEnd(this.growOffset(this.file.length() - this.offset));
+    return this.file.getByteSliceToEnd(this.growOffset(this.file.getSize() - this.offset));
   }
 
   getArrayBufferToNull(): ArrayBuffer {
-    return this.file.getByteSliceToNull(this.growOffset(this.file.length() - this.offset));
+    return this.file.getByteSliceToNull(this.growOffset(this.file.getSize() - this.offset));
   }
 
   getArrayBufferToEOF(): ArrayBuffer {
-    return this.file.getByteSliceToEOF(this.growOffset(this.file.length() - this.offset));
+    return this.file.getByteSliceToEOF(this.growOffset(this.file.getSize() - this.offset));
   }
 
   getString(length: number, encoding?: StringEncoding): Result<string, FileOutOfBoundsReadError> {

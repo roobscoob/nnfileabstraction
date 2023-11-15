@@ -1,0 +1,227 @@
+import { Option } from "./option";
+import { Result } from "./result";
+
+enum FutureState {
+  Idle,
+  Pending,
+  Resolved,
+  Rejected,
+}
+
+export class InvalidFutureState {
+  constructor(
+    public readonly currentState: FutureState,
+    public readonly expectedState: FutureState,
+  ) {}
+
+  toString() {
+    return `Invalid future state: expected ${FutureState[this.expectedState]} but got ${FutureState[this.currentState]}`;
+  }
+}
+
+export class Future<sT, eT> {
+  public static ok<sT>(value: sT): Future<sT, never> {
+    const f = new Future<sT, never>;
+
+    f.state = { state: FutureState.Resolved, value };
+
+    return f;
+  }
+
+  public static err<eT>(value: eT): Future<never, eT> {
+    const f = new Future<never, eT>;
+
+    f.state = { state: FutureState.Rejected, value };
+
+    return f;
+  }
+
+  public static fromPromise<sT, eT>(promise: Promise<Result<sT, eT>>): Future<sT, eT> {
+    const f = new Future<sT, eT>;
+
+    f.state = { state: FutureState.Pending, promise };
+
+    return f;
+  }
+
+  public static fromAsyncResult<sT, eT>(getPromise: () => Promise<Result<sT, eT>>): Future<sT, eT> {
+    const f = new Future<sT, eT>;
+
+    f.state = {
+      state: FutureState.Idle,
+      trigger(resolve, reject) {
+        getPromise().then(r => r.isOk() ? resolve(r.unwrap()) : reject(r.unwrapErr()));
+      }
+    };
+
+    return f;
+  }
+
+  public static of<sT, eT>(trigger: (resolve: (value: sT) => Result<void, InvalidFutureState>, reject: (value: eT) => Result<void, InvalidFutureState>) => void): Future<sT, eT> {
+    const f = new Future<sT, eT>;
+
+    f.state = { state: FutureState.Idle, trigger };
+
+    return f;
+  }
+
+  public static promisify<Args extends [], sT, eT>(fn: (callback: (error: eT | null | undefined, success: sT) => void) => void): Future<sT, eT>
+  public static promisify<Args extends [any], sT, eT>(fn: (arg_0: Args[0], callback: (error: eT | null | undefined, success: sT) => void) => void, arg_0: Args[0]): Future<sT, eT>
+  public static promisify<Args extends [any, any], sT, eT>(fn: (arg_0: Args[0], arg_1: Args[1], callback: (error: eT | null | undefined, success: sT) => void) => void, arg_0: Args[0], arg_1: Args[1]): Future<sT, eT>
+  public static promisify<Args extends [any, any, any], sT, eT>(fn: (arg_0: Args[0], arg_1: Args[1], arg_2: Args[2], callback: (error: eT | null | undefined, success: sT) => void) => void, arg_0: Args[0], arg_1: Args[1], arg_2: Args[2]): Future<sT, eT>
+  public static promisify<Args extends [any, any, any, any], sT, eT>(fn: (arg_0: Args[0], arg_1: Args[1], arg_2: Args[2], arg_3: Args[3], callback: (error: eT | null | undefined, success: sT) => void) => void, arg_0: Args[0], arg_1: Args[1], arg_2: Args[2], arg_3: Args[3]): Future<sT, eT>
+  public static promisify<Args extends [any, any, any, any, any], sT, eT>(fn: (arg_0: Args[0], arg_1: Args[1], arg_2: Args[2], arg_3: Args[3], arg_4: Args[4], callback: (error: eT | null | undefined, success: sT) => void) => void, arg_0: Args[0], arg_1: Args[1], arg_2: Args[2], arg_3: Args[3], arg_4: Args[4]): Future<sT, eT>
+  public static promisify(fn: any, ...args: any[]): any {
+    return Future.of((resolve, reject) => {
+      fn(...args, (error: any, success: any) => {
+        if (error != null)
+          reject(error);
+        else
+          resolve(success);
+      })
+    })
+  }
+
+  private constructor() {}
+
+  private state!: {
+    state: FutureState.Idle,
+    trigger: (resolve: (value: sT) => Result<void, InvalidFutureState>, reject: (value: eT) => Result<void, InvalidFutureState>) => void,
+  } | {
+    state: FutureState.Pending,
+    promise: Promise<Result<sT, eT>>,
+  } | {
+    state: FutureState.Resolved,
+    value: sT,
+  } | {
+    state: FutureState.Rejected,
+    value: eT,
+  }
+
+  private resolve(value: sT): Result<void, InvalidFutureState> {
+    if (this.state.state !== FutureState.Pending)
+      return Result.err(new InvalidFutureState(this.state.state, FutureState.Pending));
+  
+    this.state = {
+      state: FutureState.Resolved,
+      value,
+    };
+
+    return Result.ok(undefined);
+  }
+
+  private reject(value: eT): Result<void, InvalidFutureState> {
+    if (this.state.state !== FutureState.Pending)
+      return Result.err(new InvalidFutureState(this.state.state, FutureState.Pending));
+  
+    this.state = {
+      state: FutureState.Rejected,
+      value,
+    };
+
+    return Result.ok(undefined);
+  }
+
+  invoke(): Promise<Result<sT, eT>> {
+    if (this.state.state === FutureState.Resolved)
+      return Promise.resolve(Result.ok(this.state.value));
+
+    if (this.state.state === FutureState.Rejected)
+      return Promise.resolve(Result.err(this.state.value));
+
+    if (this.state.state === FutureState.Pending)
+      return this.state.promise;
+
+    const { trigger } = this.state;
+
+    const promise = new Promise<Result<sT, eT>>(finish => {
+      trigger(
+        v => this.resolve(v).map(() => finish(Result.ok(v))),
+        v => this.reject(v).map(() => finish(Result.err(v))),
+      )
+    });
+
+    this.state = { state: FutureState.Pending, promise };
+
+    return this.state.promise;
+  }
+
+  begin() {
+    if (this.state.state === FutureState.Idle)
+      this.invoke();
+
+    return this;
+  }
+  
+  then(onFulfilled: (value: Result<sT, eT>) => void, onRejected?: (value: never) => void): void {
+    this.invoke().then(onFulfilled);
+  }
+
+  isOk(): Promise<boolean> { return this.invoke().then(v => v.isOk()); }
+  isErr(): Promise<boolean> { return this.invoke().then(v => v.isErr()); }
+
+  ok(): Promise<Option<sT>> { return this.invoke().then(v => v.ok()); }
+  err(): Promise<Option<eT>> { return this.invoke().then(v => v.err()); }
+
+  unwrap(): Promise<sT> { return this.invoke().then(v => v.unwrap()); }
+  expect(err: string): Promise<sT> { return this.invoke().then(v => v.expect(err)); }
+  unwrapErr(): Promise<eT> { return this.invoke().then(v => v.unwrapErr()); }
+
+  map<sT2, eT2>(fn: (value: sT) => Future<sT2, eT2> | Promise<sT2> | Result<sT2, eT2> | sT2): Future<sT2, eT | eT2> {
+    return Future.of((resolve, reject) => {
+      this.then(result => {
+        if (result.isOk()) {
+          const mapped = fn(result.unwrap())
+
+          if (mapped instanceof Promise)
+            mapped.then(resolve);
+          else if (mapped instanceof Result)
+            mapped.isOk() ? resolve(mapped.unwrap()) : reject(mapped.unwrapErr());
+          else if (mapped instanceof Future)
+            mapped.invoke().then(v => v.isOk() ? resolve(v.unwrap()) : reject(v.unwrapErr()));
+          else
+            resolve(mapped);
+        }
+        else
+          reject(result.unwrapErr());
+      });
+    });
+  }
+
+  mapTry<sT2>(fn: (value: sT) => sT2): Future<sT2, any> {
+    return Future.of((resolve, reject) => {
+      this.then(result => {
+        if (result.isErr())
+          return reject(result.unwrapErr());
+
+        try {
+          resolve(fn(result.unwrap()));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+  }
+
+  mapOk<sT2>(fn: (value: sT) => sT2): Future<sT2, eT> {
+    return Future.of((resolve, reject) => {
+      this.then(result => {
+        if (result.isOk())
+          resolve(fn(result.unwrap()));
+        else
+          reject(result.unwrapErr());
+      });
+    });
+  }
+
+  mapErr<eT2>(fn: (value: eT) => eT2): Future<sT, eT2> {
+    return Future.of((resolve, reject) => {
+      this.then(result => {
+        if (result.isOk())
+          resolve(result.unwrap());
+        else
+          reject(fn(result.unwrapErr()));
+      });
+    });
+  }
+}
