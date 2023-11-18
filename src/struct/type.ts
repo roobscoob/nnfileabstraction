@@ -4,7 +4,7 @@ import { Future } from "../util/future";
 import { StringDecodeError } from "../util/stringUtils";
 
 export abstract class StructType<Type, ReadError> {
-  #____doNotAccess!: ReadError;
+  public ____doNotAccess!: ReadError;
 
   abstract read<RE>(offset: number, span: ReadableSpan<RE>, endianness: Endianness): Future<{ value: Type, bytesRead: number }, RE | ReadOutOfBoundsError | ReadError>;
   abstract write<WE>(offset: number, value: Type, span: WritableSpan<any, any, WE>, endianness: Endianness): Future<void, WE | WriteOutOfBoundsError>;
