@@ -65,10 +65,10 @@ export class Iterator<T> {
   constructor(private nextFn: () => Option<T>) {}
 
   *[Symbol.iterator]() {
-    let next = this.nextFn();
+    let next = this.next();
     while (next.isSome()) {
       yield next.unwrap();
-      next = this.nextFn();
+      next = this.next();
     } 
   }
 

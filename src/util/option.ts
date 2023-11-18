@@ -1,3 +1,5 @@
+import { Result } from "./result";
+
 export class Option<T> {
   constructor(
     private state: { ok: true, value: T } | { ok: false }
@@ -46,6 +48,11 @@ export class Option<T> {
     return or;
   }
 
+  okOr<E>(or: E): Result<T, E> {
+    if (this.state.ok) return Result.ok(this.state.value);
+    return Result.err(or);
+  }
+
   map<T2>(fn: (value: T) => T2): Option<T2> {
     if (this.state.ok) return Option.some(fn(this.state.value));
     return Option.none();
@@ -54,5 +61,11 @@ export class Option<T> {
   filter(fn: (value: T) => boolean): Option<T> {
     if (this.state.ok && fn(this.state.value)) return this;
     return Option.none();
+  }
+
+  [Symbol.for("nodejs.util.inspect.custom")](depth: number, inspectOptions: any, inspect: (value: any, options: any) => string): string {
+    return this.state.ok
+      ? "Option::Some(" + inspect(this.state.value, inspectOptions) + ")"
+      : "Option::None()";
   }
 }

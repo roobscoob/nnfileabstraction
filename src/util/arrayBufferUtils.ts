@@ -14,6 +14,10 @@ export class ArrayBufferUtils {
     return new DataView(dataView.buffer, dataView.byteOffset + start, end - start);
   }
 
+  static sliceToU8(dataView: DataView, start: number, end: number = dataView.byteLength): Uint8Array {
+    return new Uint8Array(dataView.buffer, dataView.byteOffset + start, end - start);
+  }
+
   static slicer(start: number): (dataView: ArrayBufferView) => DataView
   static slicer(start: number, end: number): (dataView: ArrayBufferView) => DataView
   static slicer(...args: number[]) {
@@ -32,6 +36,16 @@ export class ArrayBufferUtils {
       return dataView;
 
     return new DataView(dataView.buffer, dataView.byteOffset, dataView.byteLength);
+  }
+
+  static toArrayBuffer(dataView: ArrayBufferView): ArrayBuffer {
+    if (dataView instanceof ArrayBuffer)
+      return dataView;
+
+    if (dataView.byteLength === dataView.buffer.byteLength && dataView.byteOffset === 0)
+      return dataView.buffer;
+
+    return dataView.buffer.slice(dataView.byteOffset, dataView.byteOffset + dataView.byteLength);
   }
 
   private slicer_bindable(dataView: DataView) {
