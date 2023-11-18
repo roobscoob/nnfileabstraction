@@ -31,7 +31,9 @@ export class Struct {
     }
   }
 
+  // @ts-ignore
   static Definition<const Types extends (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[] | readonly (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[]>(types: Types) {
+
     return class Definition {
       static deserialize<RE>(span: ReadableSpan<RE>, endianness: Endianness, offset = 0): Future<Definition, GetReadErrors<RemovePadding<Types>> | RE | ReadOutOfBoundsError> {
         return Future.fromAsyncResult(async () => {
@@ -56,7 +58,7 @@ export class Struct {
         })
       }
 
-      constructor(protected readonly value: ToPojo<RemovePadding<Types>>) {}
+      constructor(readonly value: ToPojo<RemovePadding<Types>>) {}
     }
   }
 }
