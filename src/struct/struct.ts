@@ -44,11 +44,11 @@ export class Struct {
       getData() {
         return this.assignedData.expect("Data not assigned");
       }
-      
+
       read<RE>(offset: number, span: ReadableSpan<RE>, endianness: Endianness): Future<{ value: { key: KeyName; value: DataType; }; bytesRead: number; }, ReadOutOfBoundsError | DataReadError | RE> {
         const data = this.getData();
         const args = dependencies.map(d => data[d]);
-        
+
         return generator(args)
           .read(offset, span, endianness)
           .map(({ value, bytesRead }) => ({ value: { key: name, value }, bytesRead }))
@@ -62,7 +62,11 @@ export class Struct {
 
   static Definition<const Types extends (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[] | readonly (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[]>(name: string, types: Types) {
     return class Definition {
-      static deserialize<RE>(span: ReadableSpan<RE>, endianness: Endianness, offset = 0): Future<{ value: Definition, bytesRead: number }, GetReadErrors<RemovePadding<Types>> | RE | ReadOutOfBoundsError> {
+      static deserialize<RE>(span: ReadableSpan<RE>, endianness: Endianness, offset = 0): Future<Definition, GetReadErrors<RemovePadding<Types>> | RE | ReadOutOfBoundsError> {
+        return this.deserializeWithSize(span, endianness, offset).map(v => v.value);
+      }
+
+      static deserializeWithSize<RE>(span: ReadableSpan<RE>, endianness: Endianness, offset = 0): Future<{ value: Definition, bytesRead: number }, GetReadErrors<RemovePadding<Types>> | RE | ReadOutOfBoundsError> {
         return Future.fromAsyncResult(async () => {
           const data = {} as any;
           let bytesRead = 0;
