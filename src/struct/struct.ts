@@ -5,16 +5,16 @@ import { Result } from "../util/result";
 import { StructType } from "./type";
 
 export class Struct {
-  static Field<const KeyName, const DataType, const DataReadError>(name: KeyName, type: StructType<DataType, DataReadError>): StructType<{ key: KeyName, value: DataType }, DataReadError> {
+  static Field<const KeyName, const DataType, const DataReadError>(name: KeyName, type: StructType<DataType, DataReadError>, forcedEndianness?: Endianness): StructType<{ key: KeyName, value: DataType }, DataReadError> {
     return new class NameBoundField extends StructType<{ key: KeyName, value: DataType }, DataReadError> {
       read<RE>(offset: number, span: ReadableSpan<RE>, endianness: Endianness): Future<{ value: { key: KeyName, value: DataType }; bytesRead: number; }, DataReadError | RE | ReadOutOfBoundsError> {
         return type
-          .read(offset, span, endianness)
+          .read(offset, span, forcedEndianness ?? endianness)
           .map(({ value, bytesRead }) => ({ value: { key: name, value }, bytesRead }));
       }
 
       write<WE>(offset: number, value: { key: KeyName; value: DataType; }, span: WritableSpan<any, any, WE>, endianness: Endianness): Future<void, WE | WriteOutOfBoundsError> {
-        return type.write(offset, value.value, span, endianness);
+        return type.write(offset, value.value, span, forcedEndianness ?? endianness);
       }
     }
   }
