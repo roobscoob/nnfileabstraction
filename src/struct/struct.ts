@@ -60,7 +60,7 @@ export class Struct {
       constructor(readonly value: ToPojo<RemovePadding<Types>>) {}
 
       assertFieldEquals<Field extends keyof ToPojo<RemovePadding<Types>>>(fieldName: Field, value: ToPojo<RemovePadding<Types>>[Field]): <T>(d: T) => Result<T, CorruptedStructError<ToPojo<RemovePadding<Types>>[Field]>> {
-        if (this.value[fieldName] !== value)
+        if (this.value[fieldName] === value)
           return <T>(d: T) => Result.ok(d);
         else
           return <T>(d: T) => Result.err(new CorruptedStructFieldNotEqualError(name, fieldName, value, this.value[fieldName]))
