@@ -62,18 +62,19 @@ export class Struct {
 
   static Definition<const Types extends (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[] | readonly (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[]>(name: string, types: Types) {
     return class Definition {
-      static deserialize<RE>(span: ReadableSpan<RE>, endianness: Endianness, offset = 0): Future<Definition, GetReadErrors<RemovePadding<Types>> | RE | ReadOutOfBoundsError> {
+      static deserialize<RE>(span: ReadableSpan<RE>, endianness: Endianness, offset = 0): Future<{ value: Definition, bytesRead: number }, GetReadErrors<RemovePadding<Types>> | RE | ReadOutOfBoundsError> {
         return Future.fromAsyncResult(async () => {
           const data = {} as any;
+          let bytesRead = 0;
 
           for (const type of types) {
-            const v = await type.read(offset, span, endianness);
+            const v = await type.read(offset + bytesRead, span, endianness);
 
             if (v.isErr())
               return v;
 
             const value = v.unwrap();
-            offset += value.bytesRead;
+            bytesRead += value.bytesRead;
 
             if (value.value == undefined)
               continue;
@@ -81,7 +82,7 @@ export class Struct {
             data[value.value.key] = value.value.value;
           }
 
-          return Result.ok(new this(data as any));
+          return Result.ok({ value: new this(data as any), bytesRead });
         })
       }
 
