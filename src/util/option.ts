@@ -15,6 +15,11 @@ export class Option<T> {
     return Option.some(value as Exclude<T, NT>);
   }
 
+  static if<T>(condition: boolean, value: T): Option<T> {
+    if (condition) return Option.some(value);
+    return Option.none();
+  }
+
   static some<T>(value: T) {
     return new Option<T>({ ok: true, value });
   }
