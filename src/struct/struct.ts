@@ -2,7 +2,7 @@ import { Endianness } from "../enums";
 import { ReadOutOfBoundsError, ReadableSpan, WritableSpan, WriteOutOfBoundsError } from "../span";
 import { Future } from "../util/future";
 import { Result } from "../util/result";
-import { CorruptedStruct as CorruptedStructError } from "./errors";
+import { CorruptedStructError, CorruptedStructFieldNotEqualError, CorruptedStructFieldNotGreaterThanError } from "./errors";
 import { StructType } from "./type";
 
 export class Struct {
@@ -59,11 +59,18 @@ export class Struct {
 
       constructor(readonly value: ToPojo<RemovePadding<Types>>) {}
 
-      assertField<Field extends keyof ToPojo<RemovePadding<Types>>>(fieldName: Field, value: ToPojo<RemovePadding<Types>>[Field]): <T>(d: T) => Result<T, CorruptedStructError<ToPojo<RemovePadding<Types>>[Field]>> {
+      assertFieldEquals<Field extends keyof ToPojo<RemovePadding<Types>>>(fieldName: Field, value: ToPojo<RemovePadding<Types>>[Field]): <T>(d: T) => Result<T, CorruptedStructError<ToPojo<RemovePadding<Types>>[Field]>> {
         if (this.value[fieldName] !== value)
           return <T>(d: T) => Result.ok(d);
         else
-          return <T>(d: T) => Result.err(new CorruptedStructError(fieldName, name, value, this.value[fieldName]))
+          return <T>(d: T) => Result.err(new CorruptedStructFieldNotEqualError(name, fieldName, value, this.value[fieldName]))
+      }
+
+      assertFieldGreaterThan<Field extends keyof ToPojo<RemovePadding<Types>>>(fieldName: Field, value: ToPojo<RemovePadding<Types>>[Field]): <T>(d: T) => Result<T, CorruptedStructError<ToPojo<RemovePadding<Types>>[Field]>> {
+        if (this.value[fieldName] > value)
+          return <T>(d: T) => Result.ok(d);
+        else
+          return <T>(d: T) => Result.err(new CorruptedStructFieldNotGreaterThanError(name, fieldName, value, this.value[fieldName]))
       }
     }
   }
