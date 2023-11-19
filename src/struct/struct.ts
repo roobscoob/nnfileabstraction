@@ -1,3 +1,4 @@
+import { Option } from "../util";
 import { Endianness } from "../enums";
 import { ReadOutOfBoundsError, ReadableSpan, WritableSpan, WriteOutOfBoundsError } from "../span";
 import { Future } from "../util/future";
@@ -28,6 +29,33 @@ export class Struct {
 
       write<WE>(offset: number, value: undefined, span: WritableSpan<any, any, WE>): Future<void, WE> {
         return Future.ok(undefined);
+      }
+    }
+  }
+
+  static DependantField<const KeyName, const DependantFields extends string[], const DataType, const DataReadError>(name: KeyName, dependencies: DependantFields, generator: (...args: any[]) => StructType<DataType, DataReadError>) {
+    return <StructType<{ key: KeyName, value: DataType }, DataReadError>> new class extends StructType<{ key: KeyName, value: DataType }, DataReadError> {
+      private assignedData: Option<any> = Option.none();
+
+      assign(data: any) {
+        this.assignedData = Option.some(data);
+      }
+
+      getData() {
+        return this.assignedData.expect("Data not assigned");
+      }
+      
+      read<RE>(offset: number, span: ReadableSpan<RE>, endianness: Endianness): Future<{ value: { key: KeyName; value: DataType; }; bytesRead: number; }, ReadOutOfBoundsError | DataReadError | RE> {
+        const data = this.getData();
+        const args = dependencies.map(d => data[d]);
+        
+        return generator(args)
+          .read(offset, span, endianness)
+          .map(({ value, bytesRead }) => ({ value: { key: name, value }, bytesRead }))
+      }
+
+      write<WE>(offset: number, value: { key: KeyName; value: DataType; }, span: WritableSpan<any, any, WE>): Future<void, WE> {
+        throw new Error("Method not implemented.");
       }
     }
   }

@@ -1,3 +1,4 @@
+import { Result } from "../util";
 import { Endianness, StringEncoding } from "../enums";
 import { ReadOutOfBoundsError, ReadableSpan, WritableSpan, WriteOutOfBoundsError } from "../span";
 import { Future } from "../util/future";
@@ -151,6 +152,32 @@ export class Types {
 
       write<WE>(offset: number, value: string, span: WritableSpan<any, any, WE>, endianness: Endianness) {
         return span.setString(offset, value, format).map(v => span.setUInt8(offset + v, 0));
+      }
+    }
+  }
+
+  static FixedArray<CT extends StructType<any, any>>(size: number, type: CT) {
+    return new class FixedArray extends StructType<CT extends StructType<infer T, any> ? T[] : never, CT extends StructType<any, infer T> ? T : never> {
+      read<RE>(offset: number, span: ReadableSpan<RE>, endianness: Endianness) {
+        return <any> Future.fromAsyncResult(async () => {
+          const values = [] as any[];
+          let increment: number = 0;
+  
+          for (let i = 0; i < size; i++) {
+            const result = await type.read(offset + increment, span, endianness);
+  
+            if (result.isErr()) return result;
+  
+            values.push(result.unwrap().value);
+            increment += result.unwrap().bytesRead;
+          }
+  
+          return Result.ok({ value: values, bytesRead: increment });
+        })
+      }
+
+      write<WE>(offset: number, value: CT extends StructType<infer T, any> ? T[] : never, span: WritableSpan<any, any, WE>, endianness: Endianness): any {
+        throw new Error("Method not implemented.");
       }
     }
   }
