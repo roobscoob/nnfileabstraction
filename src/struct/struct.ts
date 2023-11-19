@@ -2,6 +2,7 @@ import { Endianness } from "../enums";
 import { ReadOutOfBoundsError, ReadableSpan, WritableSpan, WriteOutOfBoundsError } from "../span";
 import { Future } from "../util/future";
 import { Result } from "../util/result";
+import { CorruptedStruct as CorruptedStructError } from "./errors";
 import { StructType } from "./type";
 
 export class Struct {
@@ -31,9 +32,7 @@ export class Struct {
     }
   }
 
-  // @ts-ignore
-  static Definition<const Types extends (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[] | readonly (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[]>(types: Types) {
-
+  static Definition<const Types extends (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[] | readonly (StructType<undefined, never> | StructType<{ key: string, value: any }, any>)[]>(name: string, types: Types) {
     return class Definition {
       static deserialize<RE>(span: ReadableSpan<RE>, endianness: Endianness, offset = 0): Future<Definition, GetReadErrors<RemovePadding<Types>> | RE | ReadOutOfBoundsError> {
         return Future.fromAsyncResult(async () => {
@@ -59,6 +58,13 @@ export class Struct {
       }
 
       constructor(readonly value: ToPojo<RemovePadding<Types>>) {}
+
+      assertField<Field extends keyof ToPojo<RemovePadding<Types>>>(fieldName: Field, value: ToPojo<RemovePadding<Types>>[Field]): <T>(d: T) => Result<T, CorruptedStructError<ToPojo<RemovePadding<Types>>[Field]>> {
+        if (this.value[fieldName] !== value)
+          return <T>(d: T) => Result.ok(d);
+        else
+          return <T>(d: T) => Result.err(new CorruptedStructError(fieldName, name, value, this.value[fieldName]))
+      }
     }
   }
 }
