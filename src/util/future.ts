@@ -176,6 +176,16 @@ export class Future<sT, eT> {
 
   ok(): Promise<Option<sT>> { return this.invoke().then(v => v.ok()); }
   err(): Promise<Option<eT>> { return this.invoke().then(v => v.err()); }
+  okF(): Future<Option<sT>, never> {
+    return Future.of((resolve, reject) => {
+      this.then(result => resolve(result.ok()));
+    });
+  }
+  errF(): Future<Option<eT>, never> {
+    return Future.of((resolve, reject) => {
+      this.then(result => resolve(result.err()));
+    });
+  }
 
   unwrap(): Promise<sT> { return this.invoke().then(v => v.unwrap()); }
   expect(err: Error): Promise<sT> { return this.invoke().then(v => v.expect(err)); }
